@@ -1,0 +1,10 @@
+[render.com]
+  framework = "node"
+  buildCommand = "npm install"
+  startCommand = "node backend/server.js"
+
+[build]
+  command = "npm install"
+
+[deploy]
+  startCommand = "node backend/server.js"
