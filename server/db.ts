@@ -10,12 +10,25 @@ import {
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let schemaEnsured = false;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
+async function ensureSchema(db: ReturnType<typeof drizzle>) {
+  if (schemaEnsured) return;
+
+  await db.execute(sql`ALTER TABLE users MODIFY COLUMN openId varchar(64) NULL`);
+  await db.execute(sql`ALTER TABLE users MODIFY COLUMN email varchar(320) NOT NULL`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS passwordHash varchar(255) NULL`);
+  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripeCustomerId varchar(255) NULL`);
+  await db.execute(sql`ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS users_email_unique (email)`);
+
+  schemaEnsured = true;
+}
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       _db = drizzle(process.env.DATABASE_URL);
+      await ensureSchema(_db);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -25,9 +38,7 @@ export async function getDb() {
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.email) {
-    throw new Error("User email is required for upsert");
-  }
+  if (!user.email) throw new Error("User email is required for upsert");
 
   const db = await getDb();
   if (!db) {
@@ -129,7 +140,6 @@ export async function getAllUsers() {
   }).from(users).orderBy(desc(users.createdAt));
 }
 
-// ─── Course helpers ──────────────────────────────────────
 export async function getAllCourses(publishedOnly = false) {
   const db = await getDb();
   if (!db) return [];
@@ -175,7 +185,6 @@ export async function deleteCourse(id: number) {
   await db.delete(courses).where(eq(courses.id, id));
 }
 
-// ─── Lesson helpers ──────────────────────────────────────
 export async function getLessonsByCourse(courseId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -233,7 +242,6 @@ export async function deleteLesson(id: number) {
   }
 }
 
-// ─── Enrollment helpers ──────────────────────────────────
 export async function getEnrollmentsByUser(userId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -285,7 +293,6 @@ export async function getAllEnrollments() {
     .orderBy(desc(enrollments.enrolledAt));
 }
 
-// ─── Video Progress helpers ──────────────────────────────
 export async function getVideoProgress(userId: number, lessonId: number) {
   const db = await getDb();
   if (!db) return undefined;
@@ -318,7 +325,6 @@ export async function upsertVideoProgress(data: { userId: number; lessonId: numb
   }
 }
 
-// ─── Admin Stats helpers ─────────────────────────────────
 export async function getSalesStats() {
   const db = await getDb();
   if (!db) return { totalRevenue: 0, totalEnrollments: 0, totalUsers: 0, totalCourses: 0, recentSales: [], monthlySales: [] };
