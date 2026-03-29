@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { getLoginUrl, getRegisterUrl } from "@/const";
+import { getForgotPasswordUrl, getLoginUrl, getRegisterUrl } from "@/const";
 import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -82,6 +82,8 @@ export default function AuthPage({ mode = "login" }: { mode?: "login" | "registe
             ) : (
               <>
                 ยังไม่มีบัญชี? <Link href={getRegisterUrl()} className="text-primary">สมัครสมาชิก</Link>
+                <span className="mx-2">·</span>
+                <Link href={getForgotPasswordUrl()} className="text-primary">ลืมรหัสผ่าน</Link>
               </>
             )}
           </div>

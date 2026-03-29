@@ -110,6 +110,8 @@ async function ensureSchema(db: ReturnType<typeof drizzle>) {
   await runSafe(db, "users.openId nullable", sql`ALTER TABLE users MODIFY COLUMN openId varchar(64) NULL`);
   await runSafe(db, "users.passwordHash column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS passwordHash varchar(255) NULL`);
   await runSafe(db, "users.stripeCustomerId column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripeCustomerId varchar(255) NULL`);
+  await runSafe(db, "users.resetToken column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS resetToken varchar(255) NULL`);
+  await runSafe(db, "users.resetTokenExpiresAt column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS resetTokenExpiresAt timestamp NULL`);
   await runSafe(db, "users.email unique index", sql`ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS users_email_unique (email)`);
 
   schemaEnsured = true;
@@ -190,6 +192,27 @@ export async function getUserByEmail(email: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
   return result[0];
+}
+
+export async function getUserByResetToken(resetToken: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.resetToken, resetToken)).limit(1);
+  return result[0];
+}
+
+export async function setPasswordResetToken(userId: number, resetToken: string, resetTokenExpiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ resetToken, resetTokenExpiresAt }).where(eq(users.id, userId));
+}
+
+export async function resetPasswordByToken(resetToken: string, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users)
+    .set({ passwordHash, resetToken: null, resetTokenExpiresAt: null })
+    .where(eq(users.resetToken, resetToken));
 }
 
 export async function createLocalUser(data: { name: string; email: string; passwordHash: string; role?: "user" | "admin" }) {

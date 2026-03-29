@@ -11,6 +11,7 @@ import MyCourses from "./pages/MyCourses";
 import WatchLesson from "./pages/WatchLesson";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import AuthPage from "./pages/AuthPage";
+import { ForgotPasswordPage, ResetPasswordPage } from "./pages/ForgotPasswordPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCourses from "./pages/admin/AdminCourses";
 import AdminCourseEdit from "./pages/admin/AdminCourseEdit";
@@ -25,6 +26,8 @@ function Router() {
       <Route path="/courses/:slug" component={CourseDetail} />
       <Route path="/login">{() => <AuthPage mode="login" />}</Route>
       <Route path="/register">{() => <AuthPage mode="register" />}</Route>
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/my-courses" component={MyCourses} />
       <Route path="/watch/:courseId/:lessonId" component={WatchLesson} />
       <Route path="/payment/success" component={PaymentSuccess} />

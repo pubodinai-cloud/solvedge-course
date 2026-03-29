@@ -23,6 +23,8 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }).default("email"),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   stripeCustomerId: varchar("stripeCustomerId", { length: 255 }),
+  resetToken: varchar("resetToken", { length: 255 }),
+  resetTokenExpiresAt: timestamp("resetTokenExpiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),

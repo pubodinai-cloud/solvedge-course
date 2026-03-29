@@ -20,6 +20,10 @@ function hashPassword(password: string) {
   return `${salt}:${hash}`;
 }
 
+function createResetToken() {
+  return randomBytes(24).toString("hex");
+}
+
 function verifyPassword(password: string, storedHash: string) {
   const [salt, key] = storedHash.split(":");
   if (!salt || !key) return false;
@@ -77,6 +81,31 @@ export const appRouter = router({
       }
       await setAuthCookie(ctx, user);
       return { success: true, user };
+    }),
+    requestPasswordReset: publicProcedure.input(z.object({
+      email: z.string().email(),
+    })).mutation(async ({ input, ctx }) => {
+      const email = input.email.trim().toLowerCase();
+      const user = await db.getUserByEmail(email);
+      if (!user) {
+        return { success: true, resetUrl: null };
+      }
+      const token = createResetToken();
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
+      await db.setPasswordResetToken(user.id, token, expiresAt);
+      const origin = ctx.req.headers.origin || `${ctx.req.protocol}://${ctx.req.headers.host}`;
+      return { success: true, resetUrl: `${origin}/reset-password?token=${token}` };
+    }),
+    resetPassword: publicProcedure.input(z.object({
+      token: z.string().min(10),
+      password: z.string().min(8),
+    })).mutation(async ({ input }) => {
+      const user = await db.getUserByResetToken(input.token);
+      if (!user || !user.resetTokenExpiresAt || new Date(user.resetTokenExpiresAt).getTime() < Date.now()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Reset token is invalid or expired" });
+      }
+      await db.resetPasswordByToken(input.token, hashPassword(input.password));
+      return { success: true };
     }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
