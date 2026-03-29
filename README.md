@@ -1,114 +1,71 @@
-# SolvEdge Course Platform
+# AI Course Platform
 
-## 🎯 Overview
-ระบบขายคอร์ส AI ออนไลน์ - รองรับวิดีโอและ E-book
+แพลตฟอร์มคอร์สออนไลน์ที่พร้อมต่อยอดเป็น production ด้วย:
+- Vite + React + TypeScript
+- Express + tRPC
+- Drizzle ORM + MySQL
+- Stripe Checkout
+- Email/Password authentication
 
-## 🚀 Features
+## พร้อมแล้วสำหรับ
+- สมัครสมาชิก / ล็อกอินด้วยอีเมลและรหัสผ่าน
+- จัดการคอร์ส / บทเรียน / สมาชิก
+- ระบบซื้อคอร์สผ่าน Stripe
+- Deploy บน Railway
 
-### Frontend (หน้าบ้าน)
-- ✅ หน้าแสดงคอร์สทั้งหมด
-- ✅ หน้ารายละเอียดคอร์ส
-- ✅ ระบบตะกร้าสินค้า
-- ✅ หน้าชำระเงิน (Stripe)
-- ✅ หน้าสมาชิก / โปรไฟล์
-- ✅ Responsive Design
-
-### Backend (หลังบ้าน)
-- ✅ ระบบจัดการคอร์ส (CRUD)
-- ✅ ระบบจัดการผู้ใช้
-- ✅ ระบบออเดอร์
-- ✅ ระบบสิทธิ์การเข้าถึงคอร์ส
-- ✅ Dashboard สถิติ
-
-### Payment
-- ✅ Stripe Integration
-- ✅ รองรับบัตรเครดิต/เดบิต
-
-## 📦 Installation
-
+## เริ่มต้นในเครื่อง
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Copy environment file
+corepack enable
+corepack prepare pnpm@10.4.1 --activate
+pnpm install
 cp .env.example .env
-
-# 3. Edit .env with your values
-nano .env
-
-# 4. Start the server
-npm run dev
+pnpm dev
 ```
 
-## 🔧 Configuration
+## Environment Variables
+ดูตัวอย่างที่ `.env.example`
 
-### Stripe Setup
-1. สร้างบัญชีที่ https://stripe.com
-2. ไปที่ Dashboard > Developers > API Keys
-3. คัดลอก Secret Key และ Publishable Key
-4. ใส่ในไฟล์ `.env`
+### จำเป็น
+- `JWT_SECRET`
+- `OWNER_EMAIL`
+- `DATABASE_URL`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
 
-### Database
-- ใช้ SQLite (ไม่ต้องติดตั้งเพิ่ม)
-- ไฟล์จะอยู่ที่ `./database/solvedge.db`
+### optional
+- `BUILT_IN_FORGE_API_URL`
+- `BUILT_IN_FORGE_API_KEY`
+- `VITE_FRONTEND_FORGE_API_URL`
+- `VITE_FRONTEND_FORGE_API_KEY`
 
-## 📁 Project Structure
+## Database
+โปรเจคนี้ใช้ MySQL
 
-```
-solvedge-course/
-├── frontend/           # หน้าบ้าน (HTML/CSS/JS)
-│   ├── index.html
-│   ├── css/
-│   ├── js/
-│   └── assets/
-├── backend/            # หลังบ้าน (Node.js)
-│   ├── server.js
-│   ├── routes/
-│   └── middleware/
-├── database/           # ฐานข้อมูล (SQLite)
-├── assets/             # ไฟล์สื่อ
-│   ├── images/
-│   ├── videos/
-│   └── ebooks/
-└── uploads/            # ไฟล์อัพโหลด
+ตัวอย่าง:
+```env
+DATABASE_URL=mysql://user:password@host:3306/ai_course_platform
 ```
 
-## 🌐 Deployment
+## Railway Deploy
+มีไฟล์ `railway.toml` ให้แล้ว
 
-### Option 1: VPS (Hostinger, DigitalOcean, etc.)
+### ก่อน deploy ต้องตั้ง env ใน Railway
+- `JWT_SECRET`
+- `OWNER_EMAIL`
+- `DATABASE_URL`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
+## คำสั่งสำคัญ
 ```bash
-# 1. SSH to server
-ssh user@your-server
-
-# 2. Clone/Upload project
-git clone <repo-url> || scp -r solvedge-course user@server:/var/www/
-
-# 3. Install Node.js
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# 4. Install PM2
-sudo npm install -g pm2
-
-# 5. Start with PM2
-cd /var/www/solvedge-course
-npm install
-pm2 start backend/server.js --name solvedge
-
-# 6. Setup Nginx reverse proxy
-sudo apt install nginx
-sudo nano /etc/nginx/sites-available/solvedge
+pnpm dev
+pnpm check
+pnpm build
+pnpm start
+pnpm db:push
+node server/seed.mjs
 ```
 
-### Option 2: Platform as a Service
-- **Vercel**: Frontend + Serverless Functions
-- **Railway**: Full Node.js app
-- **Render**: Free tier available
-
-## 📞 Support
-
-- Email: support@solvedge.com
-- Website: https://solvedge.com
-
----
-Built with ❤️ by SolvEdge Team
+## หมายเหตุ
+- ระบบ auth ถูกเปลี่ยนจาก OAuth เป็น Email/Password ภายในระบบแล้ว
+- ผู้ใช้ที่สมัครด้วยอีเมลตรงกับ `OWNER_EMAIL` จะได้สิทธิ์ admin
