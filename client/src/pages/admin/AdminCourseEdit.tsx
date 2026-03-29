@@ -7,8 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, Loader2, Save } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, Loader2, Save, Search, Video, Eye } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useRoute, Link } from "wouter";
 
@@ -22,6 +22,8 @@ export default function AdminCourseEdit() {
 
   const { data: course, isLoading } = trpc.course.byId.useQuery({ id: courseId }, { enabled: !!courseId });
   const { data: adminLessons } = trpc.admin.lessons.list.useQuery({ courseId }, { enabled: !!courseId });
+  const [lessonQuery, setLessonQuery] = useState("");
+  const [lessonFilter, setLessonFilter] = useState<"all" | "free" | "locked">("all");
 
   const [form, setForm] = useState<{ title: string; slug: string; description: string; shortDescription: string; thumbnailUrl: string; price: string; difficulty: "beginner" | "intermediate" | "advanced"; category: string; published: boolean }>({
     title: "", slug: "", description: "", shortDescription: "", thumbnailUrl: "", price: "3900.00", difficulty: "beginner", category: "", published: false,
@@ -43,7 +45,6 @@ export default function AdminCourseEdit() {
     onError: (e) => toast.error(e.message),
   });
 
-  // Lesson CRUD
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
   const [lessonForm, setLessonForm] = useState<LessonForm>(emptyLesson);
@@ -75,6 +76,21 @@ export default function AdminCourseEdit() {
     }
   }
 
+  const filteredLessons = useMemo(() => {
+    const q = lessonQuery.trim().toLowerCase();
+    return (adminLessons || []).filter((lesson) => {
+      const matchQuery = !q || [lesson.title, lesson.description || "", lesson.videoUrl || ""].some((v) => v.toLowerCase().includes(q));
+      const matchFilter = lessonFilter === "all" || (lessonFilter === "free" ? lesson.isFreePreview : !lesson.isFreePreview);
+      return matchQuery && matchFilter;
+    });
+  }, [adminLessons, lessonQuery, lessonFilter]);
+
+  const lessonStats = useMemo(() => ({
+    total: adminLessons?.length || 0,
+    free: (adminLessons || []).filter((l) => l.isFreePreview).length,
+    withVideo: (adminLessons || []).filter((l) => !!l.videoUrl).length,
+  }), [adminLessons]);
+
   if (isLoading) {
     return <AdminLayout><div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></AdminLayout>;
   }
@@ -90,7 +106,6 @@ export default function AdminCourseEdit() {
           </div>
         </div>
 
-        {/* Course Details */}
         <Card>
           <CardHeader><CardTitle>Course Details</CardTitle></CardHeader>
           <CardContent className="space-y-4">
@@ -147,7 +162,12 @@ export default function AdminCourseEdit() {
           </CardContent>
         </Card>
 
-        {/* Lessons */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card><CardContent className="p-4"><div className="text-sm text-muted-foreground">Lessons</div><div className="text-2xl font-bold mt-1">{lessonStats.total}</div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="text-sm text-muted-foreground">Free Preview</div><div className="text-2xl font-bold mt-1 text-green-400">{lessonStats.free}</div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="text-sm text-muted-foreground">With Video URL</div><div className="text-2xl font-bold mt-1 text-cyan-400">{lessonStats.withVideo}</div></CardContent></Card>
+        </div>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Lessons ({adminLessons?.length || 0})</CardTitle>
@@ -155,19 +175,38 @@ export default function AdminCourseEdit() {
               <Plus className="h-4 w-4" /> Add Lesson
             </Button>
           </CardHeader>
-          <CardContent>
-            {adminLessons && adminLessons.length > 0 ? (
+          <CardContent className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+              <div className="relative flex-1 max-w-xl">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={lessonQuery} onChange={(e) => setLessonQuery(e.target.value)} placeholder="ค้นหาชื่อบทเรียน คำอธิบาย หรือ video URL" className="pl-9" />
+              </div>
+              <div className="w-full md:w-52">
+                <Select value={lessonFilter} onValueChange={(v) => setLessonFilter(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">ทั้งหมด</SelectItem>
+                    <SelectItem value="free">Free preview</SelectItem>
+                    <SelectItem value="locked">Members only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {filteredLessons.length > 0 ? (
               <div className="space-y-2">
-                {adminLessons.map((lesson, idx) => (
+                {filteredLessons.map((lesson, idx) => (
                   <div key={lesson.id} className="flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:bg-white/5 transition-colors">
                     <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="text-sm text-muted-foreground w-6">{idx + 1}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm truncate">{lesson.title}</span>
-                        {lesson.isFreePreview && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-400/20 text-green-400 font-bold">FREE</span>}
+                        {lesson.isFreePreview && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-400/20 text-green-400 font-bold inline-flex items-center gap-1"><Eye className="h-3 w-3" /> FREE</span>}
+                        {lesson.videoUrl && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 font-bold inline-flex items-center gap-1"><Video className="h-3 w-3" /> VIDEO</span>}
                       </div>
-                      <div className="text-xs text-muted-foreground">{lesson.durationMinutes} min{lesson.videoUrl ? " • Has video" : ""}</div>
+                      <div className="text-xs text-muted-foreground">{lesson.durationMinutes} min • sort {lesson.sortOrder}</div>
+                      {lesson.description && <div className="text-xs text-muted-foreground/80 truncate mt-1">{lesson.description}</div>}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditLesson(lesson)}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -191,13 +230,12 @@ export default function AdminCourseEdit() {
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-8">No lessons yet. Add your first lesson above.</p>
+              <p className="text-muted-foreground text-center py-8">No lessons found</p>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Lesson Dialog */}
       <Dialog open={showLessonDialog} onOpenChange={setShowLessonDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>{editingLessonId ? "Edit Lesson" : "Add Lesson"}</DialogTitle></DialogHeader>

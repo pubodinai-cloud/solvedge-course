@@ -240,6 +240,13 @@ export const appRouter = router({
     members: router({
       list: adminProcedure.query(async () => db.getAllUsers()),
       enrollments: adminProcedure.input(z.object({ userId: z.number() })).query(async ({ input }) => db.getEnrollmentsByUser(input.userId)),
+      updateRole: adminProcedure.input(z.object({ userId: z.number(), role: z.enum(["user", "admin"]) })).mutation(async ({ input, ctx }) => {
+        if (ctx.user.id === input.userId && input.role !== "admin") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot remove your own admin role" });
+        }
+        await db.updateUserRole(input.userId, input.role);
+        return { success: true };
+      }),
     }),
     stats: router({
       overview: adminProcedure.query(async () => db.getSalesStats()),
