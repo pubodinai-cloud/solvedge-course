@@ -12,14 +12,21 @@ import { ENV } from './_core/env';
 let _db: ReturnType<typeof drizzle> | null = null;
 let schemaEnsured = false;
 
+async function runSafe(db: ReturnType<typeof drizzle>, label: string, statement: any) {
+  try {
+    await db.execute(statement);
+  } catch (error) {
+    console.warn(`[Database] Schema step skipped: ${label}`, error);
+  }
+}
+
 async function ensureSchema(db: ReturnType<typeof drizzle>) {
   if (schemaEnsured) return;
 
-  await db.execute(sql`ALTER TABLE users MODIFY COLUMN openId varchar(64) NULL`);
-  await db.execute(sql`ALTER TABLE users MODIFY COLUMN email varchar(320) NOT NULL`);
-  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS passwordHash varchar(255) NULL`);
-  await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripeCustomerId varchar(255) NULL`);
-  await db.execute(sql`ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS users_email_unique (email)`);
+  await runSafe(db, "users.openId nullable", sql`ALTER TABLE users MODIFY COLUMN openId varchar(64) NULL`);
+  await runSafe(db, "users.passwordHash column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS passwordHash varchar(255) NULL`);
+  await runSafe(db, "users.stripeCustomerId column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripeCustomerId varchar(255) NULL`);
+  await runSafe(db, "users.email unique index", sql`ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS users_email_unique (email)`);
 
   schemaEnsured = true;
 }
