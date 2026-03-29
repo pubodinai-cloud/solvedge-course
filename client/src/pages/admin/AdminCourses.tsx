@@ -1,13 +1,13 @@
 import AdminLayout from "./AdminLayout";
 import { trpc } from "@/lib/trpc";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Search } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Link } from "wouter";
 
@@ -15,6 +15,8 @@ export default function AdminCourses() {
   const utils = trpc.useUtils();
   const { data: courses, isLoading } = trpc.admin.courses.list.useQuery();
   const [showCreate, setShowCreate] = useState(false);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [form, setForm] = useState<{ title: string; slug: string; shortDescription: string; price: string; difficulty: "beginner" | "intermediate" | "advanced"; category: string; published: boolean }>({ title: "", slug: "", shortDescription: "", price: "3900.00", difficulty: "beginner", category: "", published: false });
 
   const createMutation = trpc.admin.courses.create.useMutation({
@@ -36,16 +38,56 @@ export default function AdminCourses() {
     return title.toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) || "course";
   }
 
+  const filteredCourses = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (courses || []).filter((course) => {
+      const matchQuery = !q || [course.title, course.slug, course.category || "", course.shortDescription || ""].some((v) => v.toLowerCase().includes(q));
+      const matchStatus = statusFilter === "all" || (statusFilter === "published" ? course.published : !course.published);
+      return matchQuery && matchStatus;
+    });
+  }, [courses, query, statusFilter]);
+
+  const stats = useMemo(() => ({
+    total: courses?.length || 0,
+    published: (courses || []).filter((c) => c.published).length,
+    draft: (courses || []).filter((c) => !c.published).length,
+  }), [courses]);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold">Courses</h1>
-            <p className="text-muted-foreground text-sm mt-1">จัดการคอร์สทั้งหมด</p>
+            <p className="text-muted-foreground text-sm mt-1">จัดการคอร์สทั้งหมด เพิ่ม แก้ไข และ publish ได้จากหน้านี้</p>
           </div>
           <Button onClick={() => setShowCreate(true)} className="gap-2"><Plus className="h-4 w-4" /> Add Course</Button>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card><CardContent className="p-4"><div className="text-sm text-muted-foreground">Total Courses</div><div className="text-2xl font-bold mt-1">{stats.total}</div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="text-sm text-muted-foreground">Published</div><div className="text-2xl font-bold mt-1 text-green-400">{stats.published}</div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="text-sm text-muted-foreground">Draft</div><div className="text-2xl font-bold mt-1 text-yellow-400">{stats.draft}</div></CardContent></Card>
+        </div>
+
+        <Card>
+          <CardContent className="p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div className="relative flex-1 max-w-xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อคอร์ส slug หรือหมวดหมู่" className="pl-9" />
+            </div>
+            <div className="w-full md:w-52">
+              <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">ทั้งหมด</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         {isLoading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
@@ -66,9 +108,12 @@ export default function AdminCourses() {
                     </tr>
                   </thead>
                   <tbody>
-                    {courses && courses.length > 0 ? courses.map((course) => (
+                    {filteredCourses.length > 0 ? filteredCourses.map((course) => (
                       <tr key={course.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td className="py-3 px-4 font-medium">{course.title}</td>
+                        <td className="py-3 px-4">
+                          <div className="font-medium">{course.title}</div>
+                          <div className="text-xs text-muted-foreground mt-1">/{course.slug}</div>
+                        </td>
                         <td className="py-3 px-4 text-muted-foreground">{course.category || "-"}</td>
                         <td className="py-3 px-4">
                           <span className={`text-xs px-2 py-0.5 rounded-full border ${
@@ -113,7 +158,7 @@ export default function AdminCourses() {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">No courses yet. Click "Add Course" to create one.</td></tr>
+                      <tr><td colSpan={7} className="py-12 text-center text-muted-foreground">ไม่พบคอร์สตามเงื่อนไขที่ค้นหา</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -123,7 +168,6 @@ export default function AdminCourses() {
         )}
       </div>
 
-      {/* Create Course Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Create New Course</DialogTitle></DialogHeader>
