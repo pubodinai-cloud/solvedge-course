@@ -9,11 +9,6 @@ import {
   decimal,
 } from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
   openId: varchar("openId", { length: 64 }).unique(),
@@ -33,7 +28,6 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// ─── Courses ─────────────────────────────────────────────
 export const courses = mysqlTable("courses", {
   id: int("id").autoincrement().primaryKey(),
   title: varchar("title", { length: 500 }).notNull(),
@@ -57,7 +51,6 @@ export const courses = mysqlTable("courses", {
 export type Course = typeof courses.$inferSelect;
 export type InsertCourse = typeof courses.$inferInsert;
 
-// ─── Lessons (Videos) ────────────────────────────────────
 export const lessons = mysqlTable("lessons", {
   id: int("id").autoincrement().primaryKey(),
   courseId: int("courseId").notNull(),
@@ -75,7 +68,6 @@ export const lessons = mysqlTable("lessons", {
 export type Lesson = typeof lessons.$inferSelect;
 export type InsertLesson = typeof lessons.$inferInsert;
 
-// ─── Enrollments (Purchases) ─────────────────────────────
 export const enrollments = mysqlTable("enrollments", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -85,13 +77,16 @@ export const enrollments = mysqlTable("enrollments", {
   amountPaid: decimal("amountPaid", { precision: 10, scale: 2 }),
   currency: varchar("currency", { length: 10 }).default("THB"),
   status: mysqlEnum("status", ["active", "refunded", "expired"]).default("active").notNull(),
+  paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "failed", "refunded", "waived"]).default("paid").notNull(),
+  refundStatus: mysqlEnum("refundStatus", ["none", "requested", "processing", "refunded", "rejected"]).default("none").notNull(),
+  adminNote: text("adminNote"),
   enrolledAt: timestamp("enrolledAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type Enrollment = typeof enrollments.$inferSelect;
 export type InsertEnrollment = typeof enrollments.$inferInsert;
 
-// ─── Video Progress ──────────────────────────────────────
 export const videoProgress = mysqlTable("video_progress", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -105,3 +100,18 @@ export const videoProgress = mysqlTable("video_progress", {
 
 export type VideoProgress = typeof videoProgress.$inferSelect;
 export type InsertVideoProgress = typeof videoProgress.$inferInsert;
+
+export const siteSettings = mysqlTable("site_settings", {
+  id: int("id").primaryKey().default(1),
+  siteName: varchar("siteName", { length: 255 }).notNull().default("AI Academy"),
+  siteTagline: varchar("siteTagline", { length: 500 }).notNull().default("Master AI with precision & confidence"),
+  supportEmail: varchar("supportEmail", { length: 320 }).notNull().default("help@aicourse.academy"),
+  heroEyebrow: varchar("heroEyebrow", { length: 255 }).notNull().default("AI Education Platform"),
+  heroTitle: text("heroTitle"),
+  heroDescription: text("heroDescription"),
+  footerText: text("footerText"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SiteSettings = typeof siteSettings.$inferSelect;
+export type InsertSiteSettings = typeof siteSettings.$inferInsert;

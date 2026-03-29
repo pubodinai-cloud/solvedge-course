@@ -17,6 +17,7 @@ import AdminCourses from "./pages/admin/AdminCourses";
 import AdminCourseEdit from "./pages/admin/AdminCourseEdit";
 import AdminMembers from "./pages/admin/AdminMembers";
 import AdminSales from "./pages/admin/AdminSales";
+import AdminSettings from "./pages/admin/AdminSettings";
 
 function Router() {
   return (
@@ -36,23 +37,13 @@ function Router() {
       <Route path="/admin/courses/:id" component={AdminCourseEdit} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/sales" component={AdminSales} />
+      <Route path="/admin/settings" component={AdminSettings} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-function App() {
-  return (
-    <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
-  );
+export default function App() {
+  return <ErrorBoundary><ThemeProvider defaultTheme="dark"><TooltipProvider><Toaster /><Router /></TooltipProvider></ThemeProvider></ErrorBoundary>;
 }
-
-export default App;
