@@ -44,6 +44,7 @@ export const courses = mysqlTable("courses", {
   totalDurationMinutes: int("totalDurationMinutes").default(0).notNull(),
   difficulty: mysqlEnum("difficulty", ["beginner", "intermediate", "advanced"]).default("beginner").notNull(),
   category: varchar("category", { length: 255 }),
+  accessDurationDays: int("accessDurationDays").default(365).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -80,6 +81,8 @@ export const enrollments = mysqlTable("enrollments", {
   paymentStatus: mysqlEnum("paymentStatus", ["pending", "paid", "failed", "refunded", "waived"]).default("paid").notNull(),
   refundStatus: mysqlEnum("refundStatus", ["none", "requested", "processing", "refunded", "rejected"]).default("none").notNull(),
   adminNote: text("adminNote"),
+  accessStartAt: timestamp("accessStartAt").defaultNow().notNull(),
+  accessExpiresAt: timestamp("accessExpiresAt"),
   enrolledAt: timestamp("enrolledAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

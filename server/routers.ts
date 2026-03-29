@@ -137,11 +137,15 @@ export const appRouter = router({
         const session = await stripe.checkout.sessions.retrieve(input.sessionId);
         if (session.payment_status === "paid" && session.metadata?.user_id === ctx.user.id.toString()) {
           const courseId = parseInt(session.metadata.course_id);
+          const course = await db.getCourseById(courseId);
+          const accessStartAt = new Date();
+          const accessExpiresAt = new Date(accessStartAt);
+          accessExpiresAt.setDate(accessExpiresAt.getDate() + (course?.accessDurationDays || 365));
           await db.createEnrollment({
             userId: ctx.user.id, courseId, stripeSessionId: input.sessionId,
             stripePaymentIntentId: session.payment_intent as string,
             amountPaid: (session.amount_total! / 100).toFixed(2), currency: session.currency?.toUpperCase() || "THB",
-            paymentStatus: "paid", refundStatus: "none", status: "active",
+            paymentStatus: "paid", refundStatus: "none", status: "active", accessStartAt, accessExpiresAt,
           });
           return { success: true, courseId };
         }
@@ -174,8 +178,8 @@ export const appRouter = router({
     }),
     courses: router({
       list: adminProcedure.query(async () => db.getAllCourses(false)),
-      create: adminProcedure.input(z.object({ title: z.string().min(1), slug: z.string().min(1), description: z.string().optional(), shortDescription: z.string().optional(), thumbnailUrl: z.string().optional(), price: z.string().default("3900.00"), currency: z.string().default("THB"), published: z.boolean().default(false), difficulty: z.enum(["beginner", "intermediate", "advanced"]).default("beginner"), category: z.string().optional() })).mutation(async ({ input }) => ({ id: await db.createCourse(input) })),
-      update: adminProcedure.input(z.object({ id: z.number(), title: z.string().optional(), slug: z.string().optional(), description: z.string().optional(), shortDescription: z.string().optional(), thumbnailUrl: z.string().optional(), price: z.string().optional(), currency: z.string().optional(), published: z.boolean().optional(), difficulty: z.enum(["beginner", "intermediate", "advanced"]).optional(), category: z.string().optional() })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCourse(id, data); return { success: true }; }),
+      create: adminProcedure.input(z.object({ title: z.string().min(1), slug: z.string().min(1), description: z.string().optional(), shortDescription: z.string().optional(), thumbnailUrl: z.string().optional(), price: z.string().default("3900.00"), currency: z.string().default("THB"), published: z.boolean().default(false), difficulty: z.enum(["beginner", "intermediate", "advanced"]).default("beginner"), category: z.string().optional(), accessDurationDays: z.number().int().min(1).max(3650).default(365) })).mutation(async ({ input }) => ({ id: await db.createCourse(input) })),
+      update: adminProcedure.input(z.object({ id: z.number(), title: z.string().optional(), slug: z.string().optional(), description: z.string().optional(), shortDescription: z.string().optional(), thumbnailUrl: z.string().optional(), price: z.string().optional(), currency: z.string().optional(), published: z.boolean().optional(), difficulty: z.enum(["beginner", "intermediate", "advanced"]).optional(), category: z.string().optional(), accessDurationDays: z.number().int().min(1).max(3650).optional() })).mutation(async ({ input }) => { const { id, ...data } = input; await db.updateCourse(id, data); return { success: true }; }),
       delete: adminProcedure.input(z.object({ id: z.number() })).mutation(async ({ input }) => { await db.deleteCourse(input.id); return { success: true }; }),
     }),
     lessons: router({
@@ -201,9 +205,10 @@ export const appRouter = router({
         paymentStatus: z.enum(["pending", "paid", "failed", "refunded", "waived"]),
         refundStatus: z.enum(["none", "requested", "processing", "refunded", "rejected"]),
         adminNote: z.string().max(5000).optional(),
+        accessExpiresAt: z.string().optional().nullable(),
       })).mutation(async ({ input }) => {
-        const { id, ...data } = input;
-        await db.updateEnrollmentAdmin(id, { ...data, adminNote: data.adminNote || null });
+        const { id, accessExpiresAt, ...data } = input;
+        await db.updateEnrollmentAdmin(id, { ...data, adminNote: data.adminNote || null, accessExpiresAt: accessExpiresAt ? new Date(accessExpiresAt) : null });
         return { success: true };
       }),
     }),

@@ -179,7 +179,7 @@ export default function CourseDetail() {
                     <span>Level</span><span className="text-foreground font-medium capitalize">{course.difficulty}</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
-                    <span>Access</span><span className="text-foreground font-medium">Lifetime</span>
+                    <span>Access</span><span className="text-foreground font-medium">{course.accessDurationDays} days</span>
                   </div>
                 </div>
               </div>

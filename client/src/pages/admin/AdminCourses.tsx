@@ -17,7 +17,7 @@ export default function AdminCourses() {
   const [showCreate, setShowCreate] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
-  const [form, setForm] = useState<{ title: string; slug: string; shortDescription: string; price: string; difficulty: "beginner" | "intermediate" | "advanced"; category: string; published: boolean }>({ title: "", slug: "", shortDescription: "", price: "3900.00", difficulty: "beginner", category: "", published: false });
+  const [form, setForm] = useState<{ title: string; slug: string; shortDescription: string; price: string; difficulty: "beginner" | "intermediate" | "advanced"; category: string; published: boolean; accessDurationDays: number }>({ title: "", slug: "", shortDescription: "", price: "3900.00", difficulty: "beginner", category: "", published: false, accessDurationDays: 365 });
 
   const createMutation = trpc.admin.courses.create.useMutation({
     onSuccess: () => { utils.admin.courses.list.invalidate(); setShowCreate(false); resetForm(); toast.success("Course created"); },
@@ -32,7 +32,7 @@ export default function AdminCourses() {
     onError: (e) => toast.error(e.message),
   });
 
-  function resetForm() { setForm({ title: "", slug: "", shortDescription: "", price: "3900.00", difficulty: "beginner", category: "", published: false }); }
+  function resetForm() { setForm({ title: "", slug: "", shortDescription: "", price: "3900.00", difficulty: "beginner", category: "", published: false, accessDurationDays: 365 }); }
 
   function generateSlug(title: string) {
     return title.toLowerCase().replace(/[^a-z0-9\u0E00-\u0E7F]+/g, "-").replace(/^-|-$/g, "").slice(0, 100) || "course";
@@ -184,7 +184,7 @@ export default function AdminCourses() {
               <label className="text-sm font-medium mb-1 block">Short Description</label>
               <Input value={form.shortDescription} onChange={(e) => setForm({ ...form, shortDescription: e.target.value })} placeholder="Brief course description" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Price (THB)</label>
                 <Input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="3900.00" />
@@ -199,6 +199,10 @@ export default function AdminCourses() {
                     <SelectItem value="advanced">Advanced</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Access (days)</label>
+                <Input type="number" min={1} value={form.accessDurationDays} onChange={(e) => setForm({ ...form, accessDurationDays: parseInt(e.target.value) || 365 })} />
               </div>
             </div>
             <div>

@@ -62,6 +62,7 @@ async function ensureSchema(db: ReturnType<typeof drizzle>) {
       totalDurationMinutes int NOT NULL DEFAULT 0,
       difficulty enum('beginner','intermediate','advanced') NOT NULL DEFAULT 'beginner',
       category varchar(255) NULL,
+      accessDurationDays int NOT NULL DEFAULT 365,
       createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY courses_slug_unique (slug)
@@ -97,6 +98,8 @@ async function ensureSchema(db: ReturnType<typeof drizzle>) {
       paymentStatus enum('pending','paid','failed','refunded','waived') NOT NULL DEFAULT 'paid',
       refundStatus enum('none','requested','processing','refunded','rejected') NOT NULL DEFAULT 'none',
       adminNote text NULL,
+      accessStartAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      accessExpiresAt timestamp NULL,
       enrolledAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
@@ -130,6 +133,9 @@ async function ensureSchema(db: ReturnType<typeof drizzle>) {
   `);
 
   await runSafe(db, "users.openId nullable", sql`ALTER TABLE users MODIFY COLUMN openId varchar(64) NULL`);
+  await runSafe(db, "courses.accessDurationDays column", sql`ALTER TABLE courses ADD COLUMN IF NOT EXISTS accessDurationDays int NOT NULL DEFAULT 365`);
+  await runSafe(db, "enrollments.accessStartAt column", sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS accessStartAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP`);
+  await runSafe(db, "enrollments.accessExpiresAt column", sql`ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS accessExpiresAt timestamp NULL`);
   await runSafe(db, "users.passwordHash column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS passwordHash varchar(255) NULL`);
   await runSafe(db, "users.stripeCustomerId column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripeCustomerId varchar(255) NULL`);
   await runSafe(db, "users.resetToken column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS resetToken varchar(255) NULL`);
@@ -222,6 +228,7 @@ export async function getCourseById(id: number) { const db = await getDb(); if (
 export async function getCourseBySlug(slug: string) { const db = await getDb(); if (!db) return undefined; return (await db.select().from(courses).where(eq(courses.slug, slug)).limit(1))[0]; }
 export async function createCourse(data: InsertCourse) { const db = await getDb(); if (!db) throw new Error("Database not available"); const result = await db.insert(courses).values(data); return result[0].insertId; }
 export async function updateCourse(id: number, data: Partial<InsertCourse>) { const db = await getDb(); if (!db) throw new Error("Database not available"); await db.update(courses).set(data).where(eq(courses.id, id)); }
+export async function updateEnrollmentAccess(id: number, data: { status?: "active" | "refunded" | "expired"; accessExpiresAt?: Date | null }) { const db = await getDb(); if (!db) throw new Error("Database not available"); await db.update(enrollments).set(data).where(eq(enrollments.id, id)); }
 export async function deleteCourse(id: number) { const db = await getDb(); if (!db) throw new Error("Database not available"); await db.delete(lessons).where(eq(lessons.courseId, id)); await db.delete(enrollments).where(eq(enrollments.courseId, id)); await db.delete(videoProgress).where(eq(videoProgress.courseId, id)); await db.delete(courses).where(eq(courses.id, id)); }
 
 export async function getLessonsByCourse(courseId: number) { const db = await getDb(); if (!db) return []; return db.select().from(lessons).where(eq(lessons.courseId, courseId)).orderBy(asc(lessons.sortOrder), asc(lessons.id)); }
@@ -251,17 +258,18 @@ export async function getEnrollmentsByUser(userId: number) {
     id: enrollments.id, userId: enrollments.userId, courseId: enrollments.courseId,
     amountPaid: enrollments.amountPaid, currency: enrollments.currency, status: enrollments.status,
     paymentStatus: enrollments.paymentStatus, refundStatus: enrollments.refundStatus, adminNote: enrollments.adminNote,
+    accessStartAt: enrollments.accessStartAt, accessExpiresAt: enrollments.accessExpiresAt,
     enrolledAt: enrollments.enrolledAt, updatedAt: enrollments.updatedAt,
     courseTitle: courses.title, courseThumbnail: courses.thumbnailUrl, courseSlug: courses.slug,
   }).from(enrollments)
     .leftJoin(courses, eq(enrollments.courseId, courses.id))
-    .where(and(eq(enrollments.userId, userId), eq(enrollments.status, "active")))
+    .where(eq(enrollments.userId, userId))
     .orderBy(desc(enrollments.enrolledAt));
 }
 
 export async function isUserEnrolled(userId: number, courseId: number) {
   const db = await getDb(); if (!db) return false;
-  const result = await db.select().from(enrollments).where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId), eq(enrollments.status, "active"))).limit(1);
+  const result = await db.select().from(enrollments).where(and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId), eq(enrollments.status, "active"), sql`${enrollments.accessExpiresAt} IS NULL OR ${enrollments.accessExpiresAt} > NOW()`)).limit(1);
   return result.length > 0;
 }
 
@@ -274,6 +282,7 @@ export async function getAllEnrollments() {
     id: enrollments.id, userId: enrollments.userId, courseId: enrollments.courseId,
     amountPaid: enrollments.amountPaid, currency: enrollments.currency, status: enrollments.status,
     paymentStatus: enrollments.paymentStatus, refundStatus: enrollments.refundStatus, adminNote: enrollments.adminNote,
+    accessStartAt: enrollments.accessStartAt, accessExpiresAt: enrollments.accessExpiresAt,
     enrolledAt: enrollments.enrolledAt, updatedAt: enrollments.updatedAt,
     userName: users.name, userEmail: users.email, courseTitle: courses.title,
   }).from(enrollments)
@@ -282,7 +291,7 @@ export async function getAllEnrollments() {
     .orderBy(desc(enrollments.enrolledAt));
 }
 
-export async function updateEnrollmentAdmin(id: number, data: { status?: "active" | "refunded" | "expired"; paymentStatus?: "pending" | "paid" | "failed" | "refunded" | "waived"; refundStatus?: "none" | "requested" | "processing" | "refunded" | "rejected"; adminNote?: string | null; }) {
+export async function updateEnrollmentAdmin(id: number, data: { status?: "active" | "refunded" | "expired"; paymentStatus?: "pending" | "paid" | "failed" | "refunded" | "waived"; refundStatus?: "none" | "requested" | "processing" | "refunded" | "rejected"; adminNote?: string | null; accessExpiresAt?: Date | null; }) {
   const db = await getDb(); if (!db) throw new Error("Database not available");
   await db.update(enrollments).set({ ...data, updatedAt: new Date() }).where(eq(enrollments.id, id));
 }

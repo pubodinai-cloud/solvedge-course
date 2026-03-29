@@ -67,7 +67,7 @@ export default function MyCourses() {
                     <h3 className="text-lg font-bold mb-2 group-hover:text-purple-400 transition-colors">{enrollment.courseTitle}</h3>
                     <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/10">
                       <span className="text-xs text-muted-foreground">
-                        Enrolled {new Date(enrollment.enrolledAt).toLocaleDateString("th-TH")}
+                        หมดอายุ {enrollment.accessExpiresAt ? new Date(enrollment.accessExpiresAt).toLocaleDateString("th-TH") : "ไม่จำกัด"}
                       </span>
                       <span className="flex items-center gap-1 text-sm text-purple-400 font-medium">
                         Continue <ArrowRight className="h-3 w-3" />
