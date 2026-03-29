@@ -23,6 +23,90 @@ async function runSafe(db: ReturnType<typeof drizzle>, label: string, statement:
 async function ensureSchema(db: ReturnType<typeof drizzle>) {
   if (schemaEnsured) return;
 
+  await runSafe(db, "create users table", sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id int AUTO_INCREMENT PRIMARY KEY,
+      openId varchar(64) NULL,
+      name text NULL,
+      email varchar(320) NOT NULL,
+      passwordHash varchar(255) NULL,
+      loginMethod varchar(64) NULL DEFAULT 'email',
+      role enum('user','admin') NOT NULL DEFAULT 'user',
+      stripeCustomerId varchar(255) NULL,
+      createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      lastSignedIn timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY users_email_unique (email),
+      UNIQUE KEY users_openId_unique (openId)
+    )
+  `);
+
+  await runSafe(db, "create courses table", sql`
+    CREATE TABLE IF NOT EXISTS courses (
+      id int AUTO_INCREMENT PRIMARY KEY,
+      title varchar(500) NOT NULL,
+      slug varchar(500) NOT NULL,
+      description text NULL,
+      shortDescription varchar(1000) NULL,
+      thumbnailUrl text NULL,
+      price decimal(10,2) NOT NULL DEFAULT '3900.00',
+      currency varchar(10) NOT NULL DEFAULT 'THB',
+      stripePriceId varchar(255) NULL,
+      stripeProductId varchar(255) NULL,
+      published boolean NOT NULL DEFAULT false,
+      totalLessons int NOT NULL DEFAULT 0,
+      totalDurationMinutes int NOT NULL DEFAULT 0,
+      difficulty enum('beginner','intermediate','advanced') NOT NULL DEFAULT 'beginner',
+      category varchar(255) NULL,
+      createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY courses_slug_unique (slug)
+    )
+  `);
+
+  await runSafe(db, "create lessons table", sql`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id int AUTO_INCREMENT PRIMARY KEY,
+      courseId int NOT NULL,
+      title varchar(500) NOT NULL,
+      description text NULL,
+      videoUrl text NULL,
+      thumbnailUrl text NULL,
+      durationMinutes int NOT NULL DEFAULT 0,
+      sortOrder int NOT NULL DEFAULT 0,
+      isFreePreview boolean NOT NULL DEFAULT false,
+      createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `);
+
+  await runSafe(db, "create enrollments table", sql`
+    CREATE TABLE IF NOT EXISTS enrollments (
+      id int AUTO_INCREMENT PRIMARY KEY,
+      userId int NOT NULL,
+      courseId int NOT NULL,
+      stripePaymentIntentId varchar(255) NULL,
+      stripeSessionId varchar(255) NULL,
+      amountPaid decimal(10,2) NULL,
+      currency varchar(10) DEFAULT 'THB',
+      status enum('active','refunded','expired') NOT NULL DEFAULT 'active',
+      enrolledAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await runSafe(db, "create video_progress table", sql`
+    CREATE TABLE IF NOT EXISTS video_progress (
+      id int AUTO_INCREMENT PRIMARY KEY,
+      userId int NOT NULL,
+      lessonId int NOT NULL,
+      courseId int NOT NULL,
+      progressSeconds int NOT NULL DEFAULT 0,
+      totalSeconds int NOT NULL DEFAULT 0,
+      completed boolean NOT NULL DEFAULT false,
+      lastWatchedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   await runSafe(db, "users.openId nullable", sql`ALTER TABLE users MODIFY COLUMN openId varchar(64) NULL`);
   await runSafe(db, "users.passwordHash column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS passwordHash varchar(255) NULL`);
   await runSafe(db, "users.stripeCustomerId column", sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripeCustomerId varchar(255) NULL`);
