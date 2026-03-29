@@ -7,6 +7,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import * as db from "./db";
 import { createCheckoutSession, getStripe } from "./stripe";
+import { sendPasswordResetEmail } from "./email";
 import { sdk } from "./_core/sdk";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -88,13 +89,23 @@ export const appRouter = router({
       const email = input.email.trim().toLowerCase();
       const user = await db.getUserByEmail(email);
       if (!user) {
-        return { success: true, resetUrl: null };
+        return { success: true, resetUrl: null, emailed: false };
       }
       const token = createResetToken();
       const expiresAt = new Date(Date.now() + 1000 * 60 * 30);
       await db.setPasswordResetToken(user.id, token, expiresAt);
       const origin = ctx.req.headers.origin || `${ctx.req.protocol}://${ctx.req.headers.host}`;
-      return { success: true, resetUrl: `${origin}/reset-password?token=${token}` };
+      const resetUrl = `${origin}/reset-password?token=${token}`;
+
+      let emailed = false;
+      try {
+        await sendPasswordResetEmail({ to: email, resetUrl });
+        emailed = true;
+      } catch (error) {
+        console.error("[Email] Failed to send reset email:", error);
+      }
+
+      return { success: true, resetUrl, emailed };
     }),
     resetPassword: publicProcedure.input(z.object({
       token: z.string().min(10),

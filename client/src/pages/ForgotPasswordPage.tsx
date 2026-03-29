@@ -12,7 +12,11 @@ export function ForgotPasswordPage() {
   const [message, setMessage] = useState("");
   const mutation = trpc.auth.requestPasswordReset.useMutation({
     onSuccess: (data) => {
-      setMessage(data.resetUrl ? `ลิงก์รีเซ็ต: ${data.resetUrl}` : "ถ้ามีอีเมลนี้อยู่ในระบบ จะมีลิงก์รีเซ็ตให้");
+      if (data.emailed) {
+        setMessage("ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว กรุณาเช็กกล่องจดหมายของคุณ");
+        return;
+      }
+      setMessage(data.resetUrl ? `ลิงก์รีเซ็ตสำรอง: ${data.resetUrl}` : "ถ้ามีอีเมลนี้อยู่ในระบบ จะมีลิงก์รีเซ็ตให้");
     },
   });
 
